@@ -8,9 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Disc, Search, ExternalLink, Heart, Calendar } from "lucide-react";
 import { FaYoutube } from "react-icons/fa";
 import { generateYouTubeSearchUrl, formatNumber } from "@/lib/utils";
-import { discogsRequest } from "@/lib/queryClient";
+import { discogsRequest, youtubeSearchRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
-import { youtubeSearchRequest } from "@/lib/youtubeSearch";
 
 // Common music styles
 const MUSIC_STYLES = [

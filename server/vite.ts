@@ -1,15 +1,32 @@
-import { createServer as createViteServer } from 'vite';
+import { createServer } from 'vite';
 import type { Server } from 'http';
+import type { Express } from 'express';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-export async function createViteServer(httpServer: Server) {
-  const vite = await createViteServer({
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export async function setupVite(app: Express, httpServer: Server) {
+  const vite = await createServer({
     server: {
       middlewareMode: true,
       hmr: {
-        server: httpServer
-      }
-    }
+        server: httpServer,
+      },
+      allowedHosts: 'all',
+    },
+    appType: 'custom',
+    root: resolve(__dirname, '../'),
   });
 
-  return vite;
+  app.use(vite.middlewares);
+}
+
+export function serveStatic(app: Express) {
+  app.use(express.static(resolve(__dirname, '../dist')));
+}
+
+export function log(message: string) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
 } 
