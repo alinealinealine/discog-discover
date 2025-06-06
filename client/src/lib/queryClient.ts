@@ -1,4 +1,14 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+
+const DISCOGS_API_URL = '/api/discogs';
+const DISCOGS_USER_AGENT = 'DiscogTuneTracker/1.0';
+
+// Your personal access token from Discogs
+const DISCOGS_TOKEN = import.meta.env.VITE_DISCOGS_TOKEN;
+
+if (!DISCOGS_TOKEN) {
+  console.error('Discogs token is not set. Please set VITE_DISCOGS_TOKEN in your .env file');
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -7,47 +17,40 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+export async function discogsRequest<T>(
+  endpoint: string,
+  params: Record<string, string> = {}
+): Promise<T> {
+  if (!DISCOGS_TOKEN) {
+    throw new Error('Discogs token is not set');
+  }
 
-  await throwIfResNotOk(res);
-  return res;
-}
-
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
+  const queryParams = new URLSearchParams(params);
+  const url = `${DISCOGS_API_URL}${endpoint}?${queryParams.toString()}`;
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': DISCOGS_USER_AGENT,
+        'Accept': 'application/json',
+        'Authorization': `Discogs token=${DISCOGS_TOKEN}`,
+      },
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
     await throwIfResNotOk(res);
-    return await res.json();
-  };
+    return res.json();
+  } catch (error) {
+    console.error('Error fetching from Discogs:', error);
+    throw error;
+  }
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 1000 * 60 * 5, // 5 minutes
       retry: false,
     },
     mutations: {

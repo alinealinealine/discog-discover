@@ -1,38 +1,49 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Disc, Search, ExternalLink, Heart, Calendar, Tag } from "lucide-react";
+import { Disc, Search, ExternalLink, Heart, Calendar } from "lucide-react";
 import { FaYoutube } from "react-icons/fa";
 import { generateYouTubeSearchUrl, formatNumber } from "@/lib/utils";
-import { apiRequest } from "@/lib/queryClient";
+import { discogsRequest } from "@/lib/queryClient";
+import { motion, AnimatePresence } from "framer-motion";
 
-interface MusicStyle {
-  id: number;
-  name: string;
-  displayName: string;
-}
+// Common music styles
+const MUSIC_STYLES = [
+  { id: 1, name: "rock", displayName: "Rock" },
+  { id: 2, name: "jazz", displayName: "Jazz" },
+  { id: 3, name: "electronic", displayName: "Electronic" },
+  { id: 4, name: "hip-hop", displayName: "Hip Hop" },
+  { id: 5, name: "classical", displayName: "Classical" },
+  { id: 6, name: "pop", displayName: "Pop" },
+  { id: 7, name: "folk", displayName: "Folk" },
+  { id: 8, name: "metal", displayName: "Metal" },
+  { id: 9, name: "blues", displayName: "Blues" },
+  { id: 10, name: "country", displayName: "Country" },
+];
 
-interface MusicRelease {
+interface DiscogsRelease {
   id: number;
-  discogsId: string;
   title: string;
-  artist: string;
   year: string;
-  label: string;
-  format: string;
-  genre: string;
-  style: string;
-  wantCount: number;
-  collectCount: number;
-  thumbnailUrl: string;
+  format: string[];
+  label: string[];
+  genre: string[];
+  style: string[];
+  thumb: string;
+  cover_image?: string;
+  master_id?: number;
+  community: {
+    want: number;
+    have: number;
+  };
 }
 
-interface ReleasesResponse {
-  results: MusicRelease[];
+interface DiscogsSearchResponse {
+  results: DiscogsRelease[];
   pagination: {
     page: number;
     pages: number;
@@ -41,14 +52,47 @@ interface ReleasesResponse {
   };
 }
 
-export default function Home() {
-  const [selectedStyle, setSelectedStyle] = useState<string>("");
-  const [selectedStyleDisplay, setSelectedStyleDisplay] = useState<string>("");
+// Custom hook to fetch high-res cover images for releases
+function useHighResImages(releases: DiscogsRelease[] | undefined) {
+  const [images, setImages] = useState<Record<number, string>>({});
 
-  // Fetch available styles
-  const { data: styles = [] } = useQuery<MusicStyle[]>({
-    queryKey: ["/api/styles"],
-  });
+  useEffect(() => {
+    if (!releases) return;
+    let isMounted = true;
+    const fetchImages = async () => {
+      const promises = releases.map(async (release) => {
+        // Only fetch if not already cached and not a master release
+        if (images[release.id] || release.master_id) return;
+        try {
+          const data = await discogsRequest<any>(`/releases/${release.id}`);
+          const highRes = data.images?.[0]?.uri || data.cover_image || release.cover_image || release.thumb;
+          return { id: release.id, url: highRes };
+        } catch {
+          return { id: release.id, url: release.thumb };
+        }
+      });
+      const results = await Promise.all(promises);
+      if (isMounted) {
+        const newImages: Record<number, string> = {};
+        results.forEach((res) => {
+          if (res) newImages[res.id] = res.url;
+        });
+        setImages((prev) => ({ ...prev, ...newImages }));
+      }
+    };
+    fetchImages();
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [releases]);
+
+  return images;
+}
+
+export default function Home() {
+  const [selectedStyle, setSelectedStyle] = useState<string>("rock");
+  const [selectedStyleDisplay, setSelectedStyleDisplay] = useState<string>("Rock");
 
   // Fetch releases for selected style
   const { 
@@ -56,14 +100,42 @@ export default function Home() {
     isLoading: isLoadingReleases,
     error: releasesError,
     refetch: refetchReleases 
-  } = useQuery<ReleasesResponse>({
-    queryKey: [`/api/releases/${selectedStyle}`],
+  } = useQuery<DiscogsSearchResponse>({
+    queryKey: ['discogs-search', selectedStyle],
+    queryFn: () => discogsRequest<DiscogsSearchResponse>('/database/search', {
+      style: selectedStyle,
+      sort: 'have',
+      sort_order: 'desc',
+      per_page: '50',
+    }),
     enabled: !!selectedStyle,
   });
 
+  // Fetch high-res images for releases
+  const highResImages = useHighResImages(releasesData?.results);
+
+  // For the stack effect
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  // Precompute random rotations for each album (memoized for stability)
+  const rotations = useMemo(() => {
+    if (!releasesData?.results) return [];
+    return releasesData.results.map(() => (Math.random() * 10 - 5)); // -5deg to +5deg
+  }, [releasesData?.results]);
+
+  // Update albumTransforms to use a wider scatter range and avoid edges
+  const albumTransforms = useMemo(() => {
+    if (!releasesData?.results) return [];
+    return releasesData.results.map(() => ({
+      top: 5 + Math.random() * 80,    // 5-85%
+      left: 5 + Math.random() * 80,   // 5-85%
+      rotation: Math.random() * 10 - 5 // -5 to +5 deg
+    }));
+  }, [releasesData?.results]);
+
   const handleStyleChange = (value: string) => {
     setSelectedStyle(value);
-    const style = styles.find(s => s.name === value);
+    const style = MUSIC_STYLES.find(s => s.name === value);
     setSelectedStyleDisplay(style?.displayName || value);
   };
 
@@ -73,81 +145,65 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Disc className="h-8 w-8 text-gray-900" />
-              <h1 className="text-xl font-bold text-gray-900">Music Discovery Tool</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Floating Title and Style Selector */}
+        <div className="relative mb-8">
+          <div className="absolute top-0 left-0 z-10">
+            <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+              <h1 className="text-white text-sm font-medium px-3 py-1.5">Most Collected Music</h1>
             </div>
-            <div className="text-sm text-gray-500">
-              Powered by Discogs
+          </div>
+          <div className="absolute top-0 right-0 z-10">
+            <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+              <select
+                value={selectedStyle}
+                onChange={(e) => {
+                  const style = e.target.value;
+                  setSelectedStyle(style);
+                  setSelectedStyleDisplay(style.charAt(0).toUpperCase() + style.slice(1));
+                }}
+                className="bg-transparent text-white text-sm font-medium px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer hover:bg-white/5 transition-colors"
+              >
+                <option value="rock">Rock</option>
+                <option value="jazz">Jazz</option>
+                <option value="electronic">Electronic</option>
+                <option value="hip-hop">Hip Hop</option>
+                <option value="classical">Classical</option>
+                <option value="pop">Pop</option>
+                <option value="folk">Folk</option>
+                <option value="metal">Metal</option>
+                <option value="blues">Blues</option>
+                <option value="reggae">Reggae</option>
+                <option value="soul">Soul</option>
+                <option value="funk">Funk</option>
+                <option value="r-n-b">R&B</option>
+                <option value="punk">Punk</option>
+                <option value="indie">Indie</option>
+                <option value="ambient">Ambient</option>
+                <option value="house">House</option>
+                <option value="techno">Techno</option>
+                <option value="disco">Disco</option>
+                <option value="country">Country</option>
+                <option value="world">World</option>
+                <option value="experimental">Experimental</option>
+                <option value="latin">Latin</option>
+                <option value="gospel">Gospel</option>
+                <option value="soundtrack">Soundtrack</option>
+              </select>
             </div>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Style Selector */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              <Search className="inline-block w-5 h-5 mr-2" />
-              Select Music Style
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="style-select" className="block text-sm font-medium text-gray-700 mb-2">
-                  Choose a music style to discover most collected releases
-                </label>
-                <Select value={selectedStyle} onValueChange={handleStyleChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a style..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {styles.map((style) => (
-                      <SelectItem key={style.id} value={style.name}>
-                        {style.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Loading State */}
         {isLoadingReleases && (
-          <Card className="mb-8">
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4" />
-                <p className="text-gray-600">
-                  Fetching most collected <span className="font-medium">{selectedStyleDisplay}</span> music...
-                </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {Array(10).fill(0).map((_, i) => (
+              <div key={i} className="aspect-square">
+                <Skeleton className="w-full h-full rounded-2xl" />
               </div>
-              
-              {/* Loading skeleton */}
-              <div className="mt-6 space-y-4">
-                {Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="flex space-x-4">
-                      <Skeleton className="w-16 h-16 rounded-lg" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                        <Skeleton className="h-3 w-1/4" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         )}
 
         {/* Error State */}
@@ -177,132 +233,115 @@ export default function Home() {
           </Alert>
         )}
 
-        {/* Results Section */}
+        {/* Artistic Album Stack */}
         {releasesData && releasesData.results.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Most Collected <span className="capitalize font-bold">{selectedStyleDisplay}</span> Music
-                </h2>
-                <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                  {releasesData.results.length} results
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {releasesData.results.map((release) => (
-                  <div key={release.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-2">
-                          {/* Album cover */}
-                          <div className="w-12 h-12 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
-                            {release.thumbnailUrl ? (
-                              <img 
-                                src={release.thumbnailUrl} 
-                                alt={`${release.title} cover`}
-                                className="w-full h-full object-cover rounded"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  target.parentElement!.innerHTML = '<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>';
-                                }}
-                              />
-                            ) : (
-                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          <div className="relative w-full h-[900px] overflow-hidden">
+            {releasesData.results.slice(0, 20).map((release, i) => {
+              const imgUrl = release.master_id ? release.thumb : (highResImages[release.id] || release.thumb);
+              const { top, left, rotation } = albumTransforms[i] || {};
+              return (
+                <motion.div
+                  key={release.id}
+                  className="absolute"
+                  style={{
+                    top: `${top}%`,
+                    left: `${left}%`,
+                    zIndex: hovered === i ? 20 : i,
+                  }}
+                  animate={{
+                    scale: hovered === i ? 1.18 : 1,
+                    rotate: hovered === i ? 0 : rotation,
+                    filter: hovered !== null && hovered !== i ? 'blur(2px) grayscale(60%)' : 'none',
+                    opacity: hovered !== null && hovered !== i ? 0.5 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  onTouchStart={() => setHovered(i)}
+                  onTouchEnd={() => setHovered(null)}
+                >
+                  <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl shadow-2xl overflow-hidden cursor-pointer">
+                    {imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt={`${release.title} cover`}
+                        className="w-full h-full object-cover"
+                        style={{ imageRendering: 'auto' }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.parentElement!.innerHTML = `
+                            <div class='w-full h-full flex items-center justify-center bg-gray-200'>
+                              <svg class='w-12 h-12 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3'></path>
                               </svg>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-gray-900 truncate">
-                              {release.title}
-                            </h3>
-                            <p className="text-gray-600 text-sm truncate">
-                              {release.artist}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                          {release.year && (
-                            <span className="flex items-center">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {release.year}
-                            </span>
-                          )}
-                          {release.label && (
-                            <span className="flex items-center">
-                              <Tag className="w-3 h-3 mr-1" />
-                              {release.label}
-                            </span>
-                          )}
-                          <span className="flex items-center">
-                            <Heart className="w-3 h-3 mr-1 text-red-400" />
-                            {formatNumber(release.wantCount)} want
-                          </span>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          {release.format && (
-                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                              {release.format}
-                            </span>
-                          )}
-                          {release.genre && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                              {release.genre}
-                            </span>
-                          )}
-                        </div>
+                            </div>
+                          `;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
                       </div>
-
-                      <div className="ml-4 flex-shrink-0">
-                        <Button
-                          onClick={() => handleYouTubeClick(release.artist, release.title)}
-                          className="bg-red-600 hover:bg-red-700 text-white"
-                          size="sm"
+                    )}
+                    {/* Overlay info on hover */}
+                    <AnimatePresence>
+                      {hovered === i && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 20 }}
+                          transition={{ duration: 0.25 }}
+                          className="absolute inset-0 bg-black/60 backdrop-blur flex flex-col justify-end p-4 rounded-2xl"
                         >
-                          <FaYoutube className="w-4 h-4 mr-2" />
-                          Listen on YouTube
-                          <ExternalLink className="w-3 h-3 ml-2" />
-                        </Button>
-                      </div>
-                    </div>
+                          <h3 className="text-white font-semibold text-base line-clamp-2 mb-1 drop-shadow">
+                            {release.title}
+                          </h3>
+                          <p className="text-gray-200 text-xs line-clamp-1 mb-2 drop-shadow">
+                            {release.title.split(' - ')[0]}
+                          </p>
+                          <div className="flex items-center space-x-2 text-xs mb-2">
+                            {release.year && (
+                              <span className="inline-block px-2 py-1 rounded-full bg-white/70 text-gray-700 font-medium">
+                                <Calendar className="w-3 h-3 mr-1 inline-block" />
+                                {release.year}
+                              </span>
+                            )}
+                            <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                              <Heart className="w-3 h-3 mr-1 inline-block text-blue-400" />
+                              {formatNumber(release.community?.have || 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/40"
+                              onClick={() => handleYouTubeClick(release.title.split(' - ')[0], release.title)}
+                            >
+                              <FaYoutube className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/40"
+                              onClick={() => window.open(`https://www.discogs.com/release/${release.id}`, '_blank', 'noopener,noreferrer')}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                ))}
-              </div>
-
-              {/* Pagination info */}
-              {releasesData.pagination && (
-                <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
-                  <div className="text-sm text-gray-500">
-                    Showing <span className="font-medium">1-{releasesData.results.length}</span> of{" "}
-                    <span className="font-medium">{releasesData.pagination.items}</span> results
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </motion.div>
+              );
+            })}
+          </div>
         )}
-
-        {/* Empty State */}
-        {!selectedStyle && !isLoadingReleases && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-12">
-                <Disc className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Discover Music</h3>
-                <p className="text-gray-600 max-w-md mx-auto">
-                  Select a music style above to find the most collected releases in that genre. 
-                  We'll provide YouTube links so you can listen right away.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </main>
+      </div>
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
