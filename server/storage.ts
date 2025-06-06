@@ -6,6 +6,14 @@ import {
   type MusicStyle,
   type InsertMusicStyle 
 } from "@shared/schema";
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discog_discover',
+});
+
+export const db = drizzle(pool);
 
 export interface IStorage {
   // Music releases
@@ -114,3 +122,56 @@ export class MemStorage implements IStorage {
 }
 
 export const storage = new MemStorage();
+
+export const storageDb = {
+  async getMusicStyles() {
+    const styles = await db.select({ style: musicReleases.style })
+      .from(musicReleases)
+      .groupBy(musicReleases.style);
+    return styles.map(s => s.style);
+  },
+
+  async getMusicReleasesByStyle(style: string) {
+    return await db.select()
+      .from(musicReleases)
+      .where(musicReleases.style.equals(style))
+      .orderBy(musicReleases.collectCount.desc());
+  },
+
+  async createMusicReleases(releases: Array<{
+    discogsId: string;
+    title: string;
+    artist: string;
+    year: string | null;
+    label: string | null;
+    format: string | null;
+    genre: string | null;
+    style: string;
+    wantCount: number | null;
+    collectCount: number | null;
+    thumbnailUrl: string | null;
+  }>) {
+    const values = releases.map(release => ({
+      discogsId: release.discogsId,
+      title: release.title,
+      artist: release.artist,
+      year: release.year || null,
+      label: release.label || null,
+      format: release.format || null,
+      genre: release.genre || null,
+      style: release.style,
+      wantCount: release.wantCount || null,
+      collectCount: release.collectCount || null,
+      thumbnailUrl: release.thumbnailUrl || null
+    }));
+
+    return await db.insert(musicReleases)
+      .values(values)
+      .returning();
+  },
+
+  async clearMusicReleasesByStyle(style: string) {
+    return await db.delete(musicReleases)
+      .where(musicReleases.style.equals(style));
+  }
+};
