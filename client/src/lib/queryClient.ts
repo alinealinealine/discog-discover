@@ -23,12 +23,19 @@ export async function discogsRequest<T>(
   const url = `${API_BASE_URL}${endpoint}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   
   console.log('Making request to:', url);
+  console.log('With headers:', {
+    'User-Agent': DISCOGS_USER_AGENT,
+    'Accept': 'application/json',
+    'Authorization': 'Discogs token=***',
+    'Content-Type': 'application/json',
+  });
   
   try {
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
+        'Authorization': `Discogs token=${DISCOGS_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });
@@ -38,11 +45,11 @@ export async function discogsRequest<T>(
     console.log('API Response:', data);
     return data;
   } catch (error) {
-    console.error('Detailed error fetching from API:', error);
+    console.error('Detailed error fetching from Discogs:', error);
     if (error instanceof Error) {
-      throw new Error(`Failed to fetch data: ${error.message}`);
+      throw new Error(`Failed to fetch music data: ${error.message}`);
     }
-    throw new Error('Failed to fetch data. Please try again.');
+    throw new Error('Failed to fetch music data from Discogs. Please try again or select a different style.');
   }
 }
 

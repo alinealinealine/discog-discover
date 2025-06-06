@@ -21,6 +21,7 @@ export async function setupVite(app: Express, httpServer: Server) {
   });
 
   app.use(vite.middlewares);
+  return vite;
 }
 
 export function serveStatic(app: Express) {
