@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/discogs/:path*",
+      "destination": "https://api.discogs.com/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+} 
