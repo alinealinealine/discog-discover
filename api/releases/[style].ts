@@ -125,12 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         style,
         wantCount: release.community?.want || release.stats?.community?.in_wantlist || 0,
         collectCount: release.community?.have || release.stats?.community?.in_collection || 0,
-        thumbnailUrl: basicInfo.thumb || release.thumb || null,
-        // Debug: log the community data structure
-        _debug: {
-          community: release.community,
-          stats: release.stats
-        }
+        thumbnailUrl: basicInfo.thumb || release.thumb || null
       };
     });
 

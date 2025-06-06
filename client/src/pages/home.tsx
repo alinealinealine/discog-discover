@@ -315,7 +315,7 @@ export default function Home() {
                             )}
                             <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
                               <Heart className="w-3 h-3 mr-1 inline-block text-blue-400" />
-                              {formatNumber(release.community?.have || 0)}
+                              {formatNumber(release.collectCount || 0)}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2 mt-1">
@@ -323,7 +323,7 @@ export default function Home() {
                               variant="ghost"
                               size="sm"
                               className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/40"
-                              onClick={() => handleYouTubeClick(release.title.split(' - ')[0], release.title)}
+                              onClick={() => handleYouTubeClick(release.artist, release.title)}
                             >
                               <FaYoutube className="w-4 h-4" />
                             </Button>
@@ -331,7 +331,7 @@ export default function Home() {
                               variant="ghost"
                               size="sm"
                               className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/40"
-                              onClick={() => window.open(`https://www.discogs.com/release/${release.id}`, '_blank', 'noopener,noreferrer')}
+                              onClick={() => window.open(`https://www.discogs.com/release/${release.discogsId}`, '_blank', 'noopener,noreferrer')}
                             >
                               <ExternalLink className="w-4 h-4" />
                             </Button>
