@@ -38,9 +38,9 @@ export type MusicStyle = typeof musicStyles.$inferSelect;
 
 // API response schemas
 export const discogsReleaseSchema = z.object({
-  id: z.number(),
+  id: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseInt(val, 10) : val),
   title: z.string(),
-  year: z.number().optional(),
+  year: z.union([z.number(), z.string()]).optional(),
   format: z.array(z.string()).optional(),
   label: z.array(z.string()).optional(),
   genre: z.array(z.string()).optional(),
@@ -52,7 +52,7 @@ export const discogsReleaseSchema = z.object({
   }).optional(),
   basic_information: z.object({
     title: z.string(),
-    year: z.number().optional(),
+    year: z.union([z.number(), z.string()]).optional(),
     formats: z.array(z.object({
       name: z.string(),
     })).optional(),

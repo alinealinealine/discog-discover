@@ -71,35 +71,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = await response.json();
-      console.log(`Discogs API response:`, JSON.stringify(data, null, 2));
+      console.log(`Discogs API response sample:`, JSON.stringify(data.results?.[0] || {}, null, 2));
       
-      const validatedData = discogsSearchResponseSchema.parse(data);
+      // Skip validation and work directly with the API response
+      if (!data.results || !Array.isArray(data.results)) {
+        throw new Error("Invalid response format from Discogs API");
+      }
 
       // Transform and cache the results
-      const releasesToCache = validatedData.results.map(release => {
+      const releasesToCache = data.results.map((release: any) => {
         const basicInfo = release.basic_information;
         const artist = basicInfo?.artists?.[0]?.name || "Unknown Artist";
-        const title = basicInfo?.title || release.title;
-        const year = basicInfo?.year?.toString() || release.year?.toString() || "";
-        const label = basicInfo?.labels?.[0]?.name || "";
-        const format = basicInfo?.formats?.[0]?.name || "";
-        const genre = basicInfo?.genres?.[0] || "";
+        const title = basicInfo?.title || release.title || "Unknown Title";
+        const year = basicInfo?.year ? String(basicInfo.year) : (release.year ? String(release.year) : null);
+        const label = basicInfo?.labels?.[0]?.name || null;
+        const format = basicInfo?.formats?.[0]?.name || null;
+        const genre = basicInfo?.genres?.[0] || null;
         const wantCount = release.community?.want || 0;
         const collectCount = release.community?.have || 0;
-        const thumbnailUrl = basicInfo?.thumb || release.thumb || "";
+        const thumbnailUrl = basicInfo?.thumb || release.thumb || null;
 
         return {
           discogsId: release.id.toString(),
           title,
           artist,
-          year: year || null,
-          label: label || null,
-          format: format || null,
-          genre: genre || null,
+          year,
+          label,
+          format,
+          genre,
           style,
-          wantCount: wantCount || 0,
-          collectCount: collectCount || 0,
-          thumbnailUrl: thumbnailUrl || null,
+          wantCount,
+          collectCount,
+          thumbnailUrl,
         };
       });
 
@@ -109,7 +112,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createMusicReleases(releasesToCache);
       }
 
-      res.json(validatedData);
+      res.json({
+        results: releasesToCache,
+        pagination: data.pagination || {
+          page: parseInt(page as string),
+          pages: 1,
+          per_page: parseInt(per_page as string),
+          items: releasesToCache.length,
+        }
+      });
     } catch (error) {
       console.error(`Error fetching releases for style ${style}:`, error);
       res.status(500).json({ 
