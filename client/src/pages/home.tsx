@@ -10,6 +10,7 @@ import { FaYoutube } from "react-icons/fa";
 import { generateYouTubeSearchUrl, formatNumber } from "@/lib/utils";
 import { discogsRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
+import { youtubeSearchRequest } from "@/lib/youtubeSearch";
 
 // Common music styles
 const MUSIC_STYLES = [
@@ -102,10 +103,8 @@ export default function Home() {
     refetch: refetchReleases 
   } = useQuery<DiscogsSearchResponse>({
     queryKey: ['discogs-search', selectedStyle],
-    queryFn: () => discogsRequest<DiscogsSearchResponse>('/database/search', {
-      style: selectedStyle,
-      sort: 'have',
-      sort_order: 'desc',
+    queryFn: () => discogsRequest<DiscogsSearchResponse>('/releases/' + selectedStyle, {
+      page: '1',
       per_page: '50',
     }),
     enabled: !!selectedStyle,
@@ -139,9 +138,13 @@ export default function Home() {
     setSelectedStyleDisplay(style?.displayName || value);
   };
 
-  const handleYouTubeClick = (artist: string, title: string) => {
-    const url = generateYouTubeSearchUrl(artist, title);
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleYouTubeClick = async (artist: string, title: string) => {
+    try {
+      const { url } = await youtubeSearchRequest(artist, title);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening YouTube:', error);
+    }
   };
 
   return (
