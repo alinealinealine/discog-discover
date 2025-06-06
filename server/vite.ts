@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer } from 'vite';
+import { createServer as createViteServer } from 'vite';
 import { Server } from 'http';
 import { IncomingMessage, ServerResponse } from 'http';
 import viteConfig from "../vite.config";
@@ -20,19 +20,15 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-export async function createViteServer(server: Server<typeof IncomingMessage, typeof ServerResponse>) {
-  const vite = await createServer({
+export async function createViteServer(httpServer: Server) {
+  const vite = await createViteServer({
     server: {
       middlewareMode: true,
       hmr: {
-        server
+        server: httpServer
       },
-      watch: {
-        usePolling: true,
-        interval: 100
-      }
-    },
-    appType: 'custom'
+      allowedHosts: true
+    }
   });
 
   return vite;

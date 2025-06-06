@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { MusicStyle as MusicStyleType } from './types';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discog_discover',
