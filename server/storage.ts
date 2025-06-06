@@ -175,3 +175,51 @@ export const storageDb = {
       .where(musicReleases.style.equals(style));
   }
 };
+
+// Simple in-memory storage for development
+export const storage = {
+  async getMusicStyles() {
+    return [
+      'rock',
+      'jazz',
+      'electronic',
+      'hip-hop',
+      'classical',
+      'pop',
+      'folk',
+      'metal',
+      'blues',
+      'reggae',
+      'soul',
+      'funk',
+      'r-n-b',
+      'punk',
+      'indie',
+      'ambient',
+      'house',
+      'techno',
+      'disco',
+      'country',
+      'world',
+      'experimental',
+      'latin',
+      'gospel',
+      'soundtrack'
+    ];
+  },
+
+  async getMusicReleasesByStyle(style: string) {
+    // This is handled directly by the Discogs API
+    return [];
+  },
+
+  async createMusicReleases(releases: any[]) {
+    // This is handled directly by the Discogs API
+    return releases;
+  },
+
+  async clearMusicReleasesByStyle(style: string) {
+    // This is handled directly by the Discogs API
+    return true;
+  }
+};
