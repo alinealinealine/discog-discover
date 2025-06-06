@@ -1,5 +1,4 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import storage from '../../server/storage';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -20,23 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[API] Fetching releases for style: ${style}`);
     console.log(`[API] Token configured: ${DISCOGS_TOKEN ? 'YES' : 'NO'}`);
 
-    // Check if we have cached data for this style
-    const cachedReleases = await storage.getMusicReleasesByStyle(style);
-    
-    if (cachedReleases.length > 0) {
-      console.log(`[API] Using cached data: ${cachedReleases.length} releases`);
-      return res.json({
-        results: cachedReleases,
-        pagination: {
-          page: parseInt(page as string),
-          pages: Math.ceil(cachedReleases.length / parseInt(per_page as string)),
-          per_page: parseInt(per_page as string),
-          items: cachedReleases.length,
-        }
-      });
-    }
-
-    // Fetch from Discogs API
+    // Fetch from Discogs API (no caching in serverless)
     if (!DISCOGS_TOKEN) {
       console.error('[API] No Discogs token found');
       throw new Error("Discogs API token not configured");
@@ -74,8 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error("Invalid response format from Discogs API");
     }
 
-    // Transform and cache the results
-    const releasesToCache = data.results.map((release: any) => {
+    // Transform the results
+    const transformedReleases = data.results.map((release: any) => {
       const basicInfo = release.basic_information;
       
       // Extract artist and title from the release title (format: "Artist - Title")
@@ -116,19 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     });
 
-    // Cache the results
-    if (releasesToCache.length > 0) {
-      await storage.clearMusicReleasesByStyle(style);
-      await storage.createMusicReleases(releasesToCache);
-    }
-
     res.json({
-      results: releasesToCache,
+      results: transformedReleases,
       pagination: data.pagination || {
         page: parseInt(page as string),
         pages: 1,
         per_page: parseInt(per_page as string),
-        items: releasesToCache.length,
+        items: transformedReleases.length,
       }
     });
   } catch (error) {

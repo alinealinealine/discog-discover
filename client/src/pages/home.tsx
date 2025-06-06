@@ -26,17 +26,23 @@ const MUSIC_STYLES = [
 ];
 
 interface DiscogsRelease {
-  id: number;
+  id?: number;
+  discogsId: string;
   title: string;
-  year: string;
-  format: string[];
-  label: string[];
-  genre: string[];
-  style: string[];
-  thumb: string;
+  artist: string;
+  year: string | null;
+  format: string | null;
+  label: string | null;
+  genre: string | null;
+  style: string;
+  wantCount: number | null;
+  collectCount: number | null;
+  thumbnailUrl: string | null;
+  // Legacy fields for compatibility
+  thumb?: string;
   cover_image?: string;
   master_id?: number;
-  community: {
+  community?: {
     want: number;
     have: number;
   };
@@ -61,15 +67,11 @@ function useHighResImages(releases: DiscogsRelease[] | undefined) {
     let isMounted = true;
     const fetchImages = async () => {
       const promises = releases.map(async (release) => {
-        // Only fetch if not already cached and not a master release
-        if (images[release.id] || release.master_id) return;
-        try {
-          const data = await discogsRequest<any>(`/releases/${release.id}`);
-          const highRes = data.images?.[0]?.uri || data.cover_image || release.cover_image || release.thumb;
-          return { id: release.id, url: highRes };
-        } catch {
-          return { id: release.id, url: release.thumb };
-        }
+        // Use the thumbnail URL from our API
+        const releaseId = release.id || parseInt(release.discogsId);
+        if (images[releaseId]) return;
+        const imageUrl = release.thumbnailUrl || release.thumb || release.cover_image;
+        return { id: releaseId, url: imageUrl };
       });
       const results = await Promise.all(promises);
       if (isMounted) {
@@ -102,12 +104,13 @@ export default function Home() {
     refetch: refetchReleases 
   } = useQuery<DiscogsSearchResponse>({
     queryKey: ['discogs-search', selectedStyle],
-    queryFn: () => discogsRequest<DiscogsSearchResponse>('/database/search', {
-      style: selectedStyle,
-      sort: 'have',
-      sort_order: 'desc',
-      per_page: '50',
-    }),
+    queryFn: async () => {
+      const response = await fetch(`/api/releases/${selectedStyle}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch releases');
+      }
+      return response.json();
+    },
     enabled: !!selectedStyle,
   });
 
@@ -237,11 +240,12 @@ export default function Home() {
         {releasesData && releasesData.results.length > 0 && (
           <div className="relative w-full h-[900px] overflow-hidden">
             {releasesData.results.slice(0, 20).map((release, i) => {
-              const imgUrl = release.master_id ? release.thumb : (highResImages[release.id] || release.thumb);
+              const releaseId = release.id || parseInt(release.discogsId);
+              const imgUrl = release.thumbnailUrl || highResImages[releaseId] || release.thumb;
               const { top, left, rotation } = albumTransforms[i] || {};
               return (
                 <motion.div
-                  key={release.id}
+                  key={releaseId}
                   className="absolute"
                   style={{
                     top: `${top}%`,
@@ -300,7 +304,7 @@ export default function Home() {
                             {release.title}
                           </h3>
                           <p className="text-gray-200 text-xs line-clamp-1 mb-2 drop-shadow">
-                            {release.title.split(' - ')[0]}
+                            {release.artist}
                           </p>
                           <div className="flex items-center space-x-2 text-xs mb-2">
                             {release.year && (
