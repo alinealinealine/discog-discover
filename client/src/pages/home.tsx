@@ -10,6 +10,7 @@ import { FaYoutube } from "react-icons/fa";
 import { generateYouTubeSearchUrl, formatNumber } from "@/lib/utils";
 import { discogsRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Common music styles
 const MUSIC_STYLES = [
@@ -133,6 +134,7 @@ function useHighResImages(releases: DiscogsRelease[] | undefined) {
 export default function Home() {
   const [selectedStyle, setSelectedStyle] = useState<string>("rock");
   const [selectedStyleDisplay, setSelectedStyleDisplay] = useState<string>("Rock");
+  const isMobile = useIsMobile();
 
   // Fetch releases for selected style
   const { 
@@ -188,58 +190,130 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Floating Title and Style Selector */}
-        <div className="relative mb-8">
-          <div className="absolute top-0 left-0 z-10">
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
-              <h1 className="text-white text-sm font-medium px-3 py-1.5">Most Collected Music</h1>
+        {/* Mobile-Responsive Header */}
+        <div className={`relative mb-6 md:mb-8 ${isMobile ? 'space-y-3' : ''}`}>
+          {isMobile ? (
+            // Mobile: Stack vertically
+            <div className="space-y-3">
+              <div className="text-center">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-3 inline-block">
+                  <h1 className="text-white text-lg font-medium">Most Collected Music</h1>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2 inline-block">
+                  <select
+                    value={selectedStyle}
+                    onChange={(e) => {
+                      const style = e.target.value;
+                      setSelectedStyle(style);
+                      setSelectedStyleDisplay(style.charAt(0).toUpperCase() + style.slice(1));
+                    }}
+                    className="bg-transparent text-white text-sm font-medium px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer hover:bg-white/5 transition-colors min-w-[200px]"
+                  >
+          ) : (
+            // Desktop: Float left and right
+            <>
+              <div className="absolute top-0 left-0 z-10">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+                  <h1 className="text-white text-sm font-medium px-3 py-1.5">Most Collected Music</h1>
+                </div>
+              </div>
+              <div className="absolute top-0 right-0 z-10">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+                  <select
+                    value={selectedStyle}
+                    onChange={(e) => {
+                      const style = e.target.value;
+                      setSelectedStyle(style);
+                      setSelectedStyleDisplay(style.charAt(0).toUpperCase() + style.slice(1));
+                    }}
+                    className="bg-transparent text-white text-sm font-medium px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer hover:bg-white/5 transition-colors"
+                  >
+                    <option value="rock">Rock</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="hip-hop">Hip Hop</option>
+                    <option value="classical">Classical</option>
+                    <option value="pop">Pop</option>
+                    <option value="folk">Folk</option>
+                    <option value="metal">Metal</option>
+                    <option value="blues">Blues</option>
+                    <option value="reggae">Reggae</option>
+                    <option value="soul">Soul</option>
+                    <option value="funk">Funk</option>
+                    <option value="r-n-b">R&B</option>
+                    <option value="punk">Punk</option>
+                    <option value="indie">Indie</option>
+                    <option value="ambient">Ambient</option>
+                    <option value="house">House</option>
+                    <option value="techno">Techno</option>
+                    <option value="disco">Disco</option>
+                    <option value="country">Country</option>
+                    <option value="world">World</option>
+                    <option value="experimental">Experimental</option>
+                    <option value="latin">Latin</option>
+                    <option value="gospel">Gospel</option>
+                    <option value="soundtrack">Soundtrack</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="absolute top-0 right-0 z-10">
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
-              <select
-                value={selectedStyle}
-                onChange={(e) => {
-                  const style = e.target.value;
-                  setSelectedStyle(style);
-                  setSelectedStyleDisplay(style.charAt(0).toUpperCase() + style.slice(1));
-                }}
-                className="bg-transparent text-white text-sm font-medium px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer hover:bg-white/5 transition-colors"
-              >
-                <option value="rock">Rock</option>
-                <option value="jazz">Jazz</option>
-                <option value="electronic">Electronic</option>
-                <option value="hip-hop">Hip Hop</option>
-                <option value="classical">Classical</option>
-                <option value="pop">Pop</option>
-                <option value="folk">Folk</option>
-                <option value="metal">Metal</option>
-                <option value="blues">Blues</option>
-                <option value="reggae">Reggae</option>
-                <option value="soul">Soul</option>
-                <option value="funk">Funk</option>
-                <option value="r-n-b">R&B</option>
-                <option value="punk">Punk</option>
-                <option value="indie">Indie</option>
-                <option value="ambient">Ambient</option>
-                <option value="house">House</option>
-                <option value="techno">Techno</option>
-                <option value="disco">Disco</option>
-                <option value="country">Country</option>
-                <option value="world">World</option>
-                <option value="experimental">Experimental</option>
-                <option value="latin">Latin</option>
-                <option value="gospel">Gospel</option>
-                <option value="soundtrack">Soundtrack</option>
-              </select>
-            </div>
-          </div>
+          ) : (
+            // Desktop: Float left and right
+            <>
+              <div className="absolute top-0 left-0 z-10">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+                  <h1 className="text-white text-sm font-medium px-3 py-1.5">Most Collected Music</h1>
+                </div>
+              </div>
+              <div className="absolute top-0 right-0 z-10">
+                <div className="bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-2">
+                  <select
+                    value={selectedStyle}
+                    onChange={(e) => {
+                      const style = e.target.value;
+                      setSelectedStyle(style);
+                      setSelectedStyleDisplay(style.charAt(0).toUpperCase() + style.slice(1));
+                    }}
+                    className="bg-transparent text-white text-sm font-medium px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer hover:bg-white/5 transition-colors"
+                  >
+                    <option value="rock">Rock</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="hip-hop">Hip Hop</option>
+                    <option value="classical">Classical</option>
+                    <option value="pop">Pop</option>
+                    <option value="folk">Folk</option>
+                    <option value="metal">Metal</option>
+                    <option value="blues">Blues</option>
+                    <option value="reggae">Reggae</option>
+                    <option value="soul">Soul</option>
+                    <option value="funk">Funk</option>
+                    <option value="r-n-b">R&B</option>
+                    <option value="punk">Punk</option>
+                    <option value="indie">Indie</option>
+                    <option value="ambient">Ambient</option>
+                    <option value="house">House</option>
+                    <option value="techno">Techno</option>
+                    <option value="disco">Disco</option>
+                    <option value="country">Country</option>
+                    <option value="world">World</option>
+                    <option value="experimental">Experimental</option>
+                    <option value="latin">Latin</option>
+                    <option value="gospel">Gospel</option>
+                    <option value="soundtrack">Soundtrack</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Loading State */}
         {isLoadingReleases && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {Array(10).fill(0).map((_, i) => (
+          <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'}`}>
+            {Array(isMobile ? 6 : 10).fill(0).map((_, i) => (
               <div key={i} className="aspect-square">
                 <Skeleton className="w-full h-full rounded-2xl" />
               </div>
@@ -274,34 +348,111 @@ export default function Home() {
           </Alert>
         )}
 
-        {/* Artistic Album Stack */}
+        {/* Album Display - Responsive */}
         {releasesData && releasesData.results.length > 0 && (
-          <div className="relative w-full h-[900px] overflow-hidden">
-            {releasesData.results.slice(0, 20).map((release, i) => {
-              const imgUrl = highResImages[release.discogsId] || release.thumbnailUrl || release.thumb;
-              const { top, left, rotation } = albumTransforms[i] || {};
-              return (
-                <motion.div
-                  key={release.discogsId}
-                  className="absolute"
-                  style={{
-                    top: `${top}%`,
-                    left: `${left}%`,
-                    zIndex: hovered === i ? 20 : i,
-                  }}
-                  animate={{
-                    scale: hovered === i ? 1.18 : 1,
-                    rotate: hovered === i ? 0 : rotation,
-                    filter: hovered !== null && hovered !== i ? 'blur(2px) grayscale(60%)' : 'none',
-                    opacity: hovered !== null && hovered !== i ? 0.5 : 1,
-                  }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  onTouchStart={() => setHovered(i)}
-                  onTouchEnd={() => setHovered(null)}
-                >
-                  <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl shadow-2xl overflow-hidden cursor-pointer">
+          <div>
+            {isMobile ? (
+              // Mobile: Grid Layout
+              <div className="grid grid-cols-2 gap-4">
+                {releasesData.results.slice(0, 12).map((release, i) => {
+                  const imgUrl = highResImages[release.discogsId] || release.thumbnailUrl || release.thumb;
+                  return (
+                    <motion.div
+                      key={release.discogsId}
+                      className="relative aspect-square"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    >
+                      <div className="relative w-full h-full rounded-2xl shadow-xl overflow-hidden cursor-pointer bg-gray-800">
+                        {imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={`${release.title} cover`}
+                            className="w-full h-full object-cover"
+                            style={{ imageRendering: 'auto' }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-700">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                          </div>
+                        )}
+                        
+                        {/* Mobile Overlay - Always visible */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3">
+                          <h3 className="text-white font-semibold text-sm line-clamp-1 mb-1">
+                            {release.title}
+                          </h3>
+                          <p className="text-gray-200 text-xs line-clamp-1 mb-2">
+                            {release.artist}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1">
+                              {release.year && (
+                                <span className="inline-block px-2 py-1 rounded-full bg-white/20 text-white text-xs">
+                                  {release.year}
+                                </span>
+                              )}
+                              <span className="inline-block px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs">
+                                <Heart className="w-3 h-3 mr-1 inline-block" />
+                                {formatNumber(release.collectCount || 0)}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-white hover:text-blue-300 p-1 h-auto"
+                                onClick={() => handleYouTubeClick(release.artist, release.title)}
+                              >
+                                <FaYoutube className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-white hover:text-blue-300 p-1 h-auto"
+                                onClick={() => window.open(`https://www.discogs.com/release/${release.discogsId}`, '_blank', 'noopener,noreferrer')}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              // Desktop: Artistic Scattered Layout
+              <div className="relative w-full h-[900px] overflow-hidden">
+                {releasesData.results.slice(0, 20).map((release, i) => {
+                  const imgUrl = highResImages[release.discogsId] || release.thumbnailUrl || release.thumb;
+                  const { top, left, rotation } = albumTransforms[i] || {};
+                  return (
+                    <motion.div
+                      key={release.discogsId}
+                      className="absolute"
+                      style={{
+                        top: `${top}%`,
+                        left: `${left}%`,
+                        zIndex: hovered === i ? 20 : i,
+                      }}
+                      animate={{
+                        scale: hovered === i ? 1.18 : 1,
+                        rotate: hovered === i ? 0 : rotation,
+                        filter: hovered !== null && hovered !== i ? 'blur(2px) grayscale(60%)' : 'none',
+                        opacity: hovered !== null && hovered !== i ? 0.5 : 1,
+                      }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                      onMouseEnter={() => setHovered(i)}
+                      onMouseLeave={() => setHovered(null)}
+                      onTouchStart={() => setHovered(i)}
+                      onTouchEnd={() => setHovered(null)}
+                    >
+                      <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl shadow-2xl overflow-hidden cursor-pointer">
                     {imgUrl ? (
                       <img
                         src={imgUrl}
@@ -380,6 +531,8 @@ export default function Home() {
                 </motion.div>
               );
             })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -387,13 +540,13 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <div className="flex items-center space-x-4">
+          <div className={`${isMobile ? 'flex flex-col space-y-2 text-center' : 'flex items-center justify-between'} text-sm text-gray-500`}>
+            <div className={`${isMobile ? 'flex flex-col space-y-1' : 'flex items-center space-x-4'}`}>
               <span>© 2024 Music Discovery Tool</span>
-              <span>•</span>
+              {!isMobile && <span>•</span>}
               <span>Built for music discovery</span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center space-x-2">
               <span>Data from</span>
               <a 
                 href="https://www.discogs.com" 
