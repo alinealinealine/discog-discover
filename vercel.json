@@ -7,7 +7,7 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/discogs/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -19,7 +19,16 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, Content-Type, Accept, Authorization"
+          "value": "X-Requested-With, Content-Type, Accept, Authorization, User-Agent"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
         }
       ]
     }
