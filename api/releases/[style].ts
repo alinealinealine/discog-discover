@@ -17,10 +17,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const DISCOGS_TOKEN = process.env.DISCOGS_TOKEN || process.env.DISCOGS_API_TOKEN || "";
     const DISCOGS_BASE_URL = "https://api.discogs.com";
 
+    console.log(`[API] Fetching releases for style: ${style}`);
+    console.log(`[API] Token configured: ${DISCOGS_TOKEN ? 'YES' : 'NO'}`);
+
     // Check if we have cached data for this style
     const cachedReleases = await storage.getMusicReleasesByStyle(style);
     
     if (cachedReleases.length > 0) {
+      console.log(`[API] Using cached data: ${cachedReleases.length} releases`);
       return res.json({
         results: cachedReleases,
         pagination: {
@@ -34,6 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Fetch from Discogs API
     if (!DISCOGS_TOKEN) {
+      console.error('[API] No Discogs token found');
       throw new Error("Discogs API token not configured");
     }
 
@@ -57,8 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Discogs API error: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`Discogs API error: ${response.status} ${response.statusText}`);
+      console.error(`[API] Discogs API error: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Discogs API error: ${response.status} ${response.statusText}: ${errorText}`);
     }
 
     const data = await response.json();
@@ -127,10 +132,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
   } catch (error) {
-    console.error(`Error fetching releases for style ${style}:`, error);
+    console.error(`[API] Error fetching releases for style ${style}:`, error);
     res.status(500).json({ 
       error: "Failed to fetch releases from Discogs",
-      details: error instanceof Error ? error.message : "Unknown error"
+      details: error instanceof Error ? error.message : "Unknown error",
+      style: style
     });
   }
 }
