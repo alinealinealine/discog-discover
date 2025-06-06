@@ -81,8 +81,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Transform and cache the results
       const releasesToCache = data.results.map((release: any) => {
         const basicInfo = release.basic_information;
-        const artist = basicInfo?.artists?.[0]?.name || "Unknown Artist";
-        const title = basicInfo?.title || release.title || "Unknown Title";
+        
+        // Extract artist and title from the release title (format: "Artist - Title")
+        let artist = "Unknown Artist";
+        let title = "Unknown Title";
+        
+        const fullTitle = basicInfo?.title || release.title || "";
+        if (fullTitle.includes(" - ")) {
+          const parts = fullTitle.split(" - ");
+          artist = parts[0].trim();
+          title = parts.slice(1).join(" - ").trim();
+        } else if (basicInfo?.artists?.[0]?.name) {
+          artist = basicInfo.artists[0].name;
+          title = fullTitle;
+        } else {
+          title = fullTitle;
+        }
         const year = basicInfo?.year ? String(basicInfo.year) : (release.year ? String(release.year) : null);
         const label = basicInfo?.labels?.[0]?.name || null;
         const format = basicInfo?.formats?.[0]?.name || null;
