@@ -31,14 +31,8 @@ A beautiful music discovery web application that showcases popular albums using 
 
 ## 🖼️ Screenshots
 
-> **Add screenshots of your app here! Suggested shots:**
-> - Main interface showing scattered album covers
-> - Hover state with album details overlay  
-> - Genre selection dropdown
-> - Mobile responsive view
-> - High-resolution image loading progression
+<img width="673" alt="image" src="https://github.com/user-attachments/assets/dfcd4c1c-2a61-46db-aaeb-984d2722f083" />
 
-*Replace this section with actual screenshots when ready to share*
 
 ## 🛠️ Tech Stack
 
