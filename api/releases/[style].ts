@@ -50,9 +50,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await response.json();
     console.log('[API] Got data, results count:', data.results?.length || 0);
 
-    // Simple response without complex transformation
+    // Transform data for frontend compatibility
+    const transformedResults = (data.results || []).map((release: any) => {
+      const basicInfo = release.basic_information || {};
+      
+      // Extract artist and title
+      let artist = "Unknown Artist";
+      let title = "Unknown Title";
+      
+      if (basicInfo.artists?.[0]?.name) {
+        artist = basicInfo.artists[0].name;
+        title = basicInfo.title || release.title || "";
+      } else {
+        const fullTitle = basicInfo.title || release.title || "";
+        if (fullTitle.includes(" - ")) {
+          const parts = fullTitle.split(" - ");
+          artist = parts[0].trim();
+          title = parts.slice(1).join(" - ").trim();
+        } else {
+          title = fullTitle;
+        }
+      }
+
+      return {
+        discogsId: release.id?.toString() || Math.random().toString(),
+        title,
+        artist,
+        year: basicInfo.year?.toString() || release.year?.toString() || null,
+        label: basicInfo.labels?.[0]?.name || null,
+        format: basicInfo.formats?.[0]?.name || null,
+        genre: basicInfo.genres?.[0] || null,
+        style,
+        wantCount: release.community?.want || 0,
+        collectCount: release.community?.have || 0,
+        thumbnailUrl: basicInfo.thumb || release.thumb || null,
+      };
+    });
+
     return res.json({
-      results: data.results || [],
+      results: transformedResults,
       pagination: data.pagination || { page: 1, pages: 1, per_page: 20, items: 0 }
     });
 
