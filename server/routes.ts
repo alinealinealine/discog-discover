@@ -47,13 +47,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const searchUrl = new URL(`${DISCOGS_BASE_URL}/database/search`);
-      searchUrl.searchParams.set("style", style);
+      // Use genre instead of style for better results
+      searchUrl.searchParams.set("genre", style.charAt(0).toUpperCase() + style.slice(1));
       searchUrl.searchParams.set("type", "release");
       searchUrl.searchParams.set("sort", "want");
       searchUrl.searchParams.set("sort_order", "desc");
       searchUrl.searchParams.set("page", page as string);
       searchUrl.searchParams.set("per_page", per_page as string);
 
+      console.log(`Fetching from Discogs: ${searchUrl.toString()}`);
+      
       const response = await fetch(searchUrl.toString(), {
         headers: {
           "Authorization": `Discogs token=${DISCOGS_TOKEN}`,
@@ -62,10 +65,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Discogs API error: ${response.status} ${response.statusText}`, errorText);
         throw new Error(`Discogs API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log(`Discogs API response:`, JSON.stringify(data, null, 2));
+      
       const validatedData = discogsSearchResponseSchema.parse(data);
 
       // Transform and cache the results
@@ -85,14 +92,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           discogsId: release.id.toString(),
           title,
           artist,
-          year,
-          label,
-          format,
-          genre,
+          year: year || null,
+          label: label || null,
+          format: format || null,
+          genre: genre || null,
           style,
-          wantCount,
-          collectCount,
-          thumbnailUrl,
+          wantCount: wantCount || 0,
+          collectCount: collectCount || 0,
+          thumbnailUrl: thumbnailUrl || null,
         };
       });
 
