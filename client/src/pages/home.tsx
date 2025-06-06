@@ -57,7 +57,7 @@ export default function Home() {
     error: releasesError,
     refetch: refetchReleases 
   } = useQuery<ReleasesResponse>({
-    queryKey: ["/api/releases", selectedStyle],
+    queryKey: [`/api/releases/${selectedStyle}`],
     enabled: !!selectedStyle,
   });
 
