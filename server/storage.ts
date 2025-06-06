@@ -41,8 +41,11 @@ const storage = {
 
   createMusicReleases: async (releases: Omit<MusicRelease, 'id'>[]): Promise<MusicRelease[]> => {
     return releases.map((release, index) => ({
-      ...release,
       id: index + 1,
+      style: release.style,
+      title: release.title,
+      discogsId: release.discogsId,
+      artist: release.artist,
       label: release.label ?? null,
       format: release.format ?? null,
       year: release.year ?? null,

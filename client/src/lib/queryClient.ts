@@ -1,6 +1,14 @@
 import { QueryClient } from "@tanstack/react-query";
 
-const API_BASE_URL = '/api/discogs';
+const DISCOGS_API_URL = '/api/discogs';
+const DISCOGS_USER_AGENT = 'DiscogTuneTracker/1.0';
+
+// Your personal access token from Discogs
+const DISCOGS_TOKEN = import.meta.env.VITE_DISCOGS_TOKEN;
+
+if (!DISCOGS_TOKEN) {
+  console.error('Discogs token is not set. Please set VITE_DISCOGS_TOKEN in your .env file');
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -19,8 +27,12 @@ export async function discogsRequest<T>(
   endpoint: string,
   params: Record<string, string> = {}
 ): Promise<T> {
+  if (!DISCOGS_TOKEN) {
+    throw new Error('Discogs token is not set');
+  }
+
   const queryParams = new URLSearchParams(params);
-  const url = `${API_BASE_URL}${endpoint}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `${DISCOGS_API_URL}${endpoint}?${queryParams.toString()}`;
   
   console.log('Making request to:', url);
   console.log('With headers:', {
@@ -34,6 +46,7 @@ export async function discogsRequest<T>(
     const res = await fetch(url, {
       method: 'GET',
       headers: {
+        'User-Agent': DISCOGS_USER_AGENT,
         'Accept': 'application/json',
         'Authorization': `Discogs token=${DISCOGS_TOKEN}`,
         'Content-Type': 'application/json',
@@ -50,28 +63,6 @@ export async function discogsRequest<T>(
       throw new Error(`Failed to fetch music data: ${error.message}`);
     }
     throw new Error('Failed to fetch music data from Discogs. Please try again or select a different style.');
-  }
-}
-
-export async function youtubeSearchRequest(artist: string, title: string): Promise<{ url: string }> {
-  const url = `${API_BASE_URL}/youtube-search`;
-  
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ artist, title }),
-    });
-
-    await throwIfResNotOk(res);
-    const data = await res.json();
-    return data;
-  } catch (error) {
-    console.error('Error generating YouTube URL:', error);
-    throw new Error('Failed to generate YouTube search URL');
   }
 }
 

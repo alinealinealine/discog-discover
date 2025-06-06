@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Disc, Search, ExternalLink, Heart, Calendar } from "lucide-react";
 import { FaYoutube } from "react-icons/fa";
 import { generateYouTubeSearchUrl, formatNumber } from "@/lib/utils";
-import { discogsRequest, youtubeSearchRequest } from "@/lib/queryClient";
+import { discogsRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Common music styles
@@ -102,8 +102,10 @@ export default function Home() {
     refetch: refetchReleases 
   } = useQuery<DiscogsSearchResponse>({
     queryKey: ['discogs-search', selectedStyle],
-    queryFn: () => discogsRequest<DiscogsSearchResponse>('/releases/' + selectedStyle, {
-      page: '1',
+    queryFn: () => discogsRequest<DiscogsSearchResponse>('/database/search', {
+      style: selectedStyle,
+      sort: 'have',
+      sort_order: 'desc',
       per_page: '50',
     }),
     enabled: !!selectedStyle,
@@ -137,13 +139,9 @@ export default function Home() {
     setSelectedStyleDisplay(style?.displayName || value);
   };
 
-  const handleYouTubeClick = async (artist: string, title: string) => {
-    try {
-      const { url } = await youtubeSearchRequest(artist, title);
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Error opening YouTube:', error);
-    }
+  const handleYouTubeClick = (artist: string, title: string) => {
+    const url = generateYouTubeSearchUrl(artist, title);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -203,9 +201,9 @@ export default function Home() {
             {Array(10).fill(0).map((_, i) => (
               <div key={i} className="aspect-square">
                 <Skeleton className="w-full h-full rounded-2xl" />
-                  </div>
-                ))}
               </div>
+            ))}
+          </div>
         )}
 
         {/* Error State */}
@@ -264,14 +262,14 @@ export default function Home() {
                 >
                   <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl shadow-2xl overflow-hidden cursor-pointer">
                     {imgUrl ? (
-                              <img 
+                      <img
                         src={imgUrl}
-                                alt={`${release.title} cover`}
+                        alt={`${release.title} cover`}
                         className="w-full h-full object-cover"
                         style={{ imageRendering: 'auto' }}
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
                           target.parentElement!.innerHTML = `
                             <div class='w-full h-full flex items-center justify-center bg-gray-200'>
                               <svg class='w-12 h-12 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -279,14 +277,14 @@ export default function Home() {
                               </svg>
                             </div>
                           `;
-                                }}
-                              />
-                            ) : (
+                        }}
+                      />
+                    ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">
                         <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                              </svg>
-                          </div>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
                     )}
                     {/* Overlay info on hover */}
                     <AnimatePresence>
@@ -299,23 +297,23 @@ export default function Home() {
                           className="absolute inset-0 bg-black/60 backdrop-blur flex flex-col justify-end p-4 rounded-2xl"
                         >
                           <h3 className="text-white font-semibold text-base line-clamp-2 mb-1 drop-shadow">
-                              {release.title}
-                            </h3>
+                            {release.title}
+                          </h3>
                           <p className="text-gray-200 text-xs line-clamp-1 mb-2 drop-shadow">
                             {release.title.split(' - ')[0]}
-                            </p>
+                          </p>
                           <div className="flex items-center space-x-2 text-xs mb-2">
-                          {release.year && (
+                            {release.year && (
                               <span className="inline-block px-2 py-1 rounded-full bg-white/70 text-gray-700 font-medium">
                                 <Calendar className="w-3 h-3 mr-1 inline-block" />
-                              {release.year}
-                            </span>
-                          )}
+                                {release.year}
+                              </span>
+                            )}
                             <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
                               <Heart className="w-3 h-3 mr-1 inline-block text-blue-400" />
                               {formatNumber(release.community?.have || 0)}
-                          </span>
-                        </div>
+                            </span>
+                          </div>
                           <div className="flex items-center space-x-2 mt-1">
                             <Button
                               variant="ghost"
@@ -325,15 +323,15 @@ export default function Home() {
                             >
                               <FaYoutube className="w-4 h-4" />
                             </Button>
-                        <Button
+                            <Button
                               variant="ghost"
-                          size="sm"
+                              size="sm"
                               className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/40"
                               onClick={() => window.open(`https://www.discogs.com/release/${release.id}`, '_blank', 'noopener,noreferrer')}
-                        >
+                            >
                               <ExternalLink className="w-4 h-4" />
-                        </Button>
-                      </div>
+                            </Button>
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -341,9 +339,9 @@ export default function Home() {
                 </motion.div>
               );
             })}
-                </div>
-              )}
-              </div>
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
