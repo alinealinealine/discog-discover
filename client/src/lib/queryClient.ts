@@ -30,18 +30,22 @@ export async function discogsRequest<T>(
   
   try {
     const res = await fetch(url, {
+      method: 'GET',
       headers: {
         'User-Agent': DISCOGS_USER_AGENT,
         'Accept': 'application/json',
         'Authorization': `Discogs token=${DISCOGS_TOKEN}`,
+        'Content-Type': 'application/json',
       },
+      mode: 'cors',
+      credentials: 'omit',
     });
 
     await throwIfResNotOk(res);
     return res.json();
   } catch (error) {
     console.error('Error fetching from Discogs:', error);
-    throw error;
+    throw new Error('Failed to fetch music data from Discogs. Please try again or select a different style.');
   }
 }
 
