@@ -60,28 +60,66 @@ interface DiscogsSearchResponse {
 
 // Custom hook to fetch high-res cover images for releases
 function useHighResImages(releases: DiscogsRelease[] | undefined) {
-  const [images, setImages] = useState<Record<number, string>>({});
+  const [images, setImages] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!releases) return;
     let isMounted = true;
+    
     const fetchImages = async () => {
-      const promises = releases.map(async (release) => {
-        // Use the thumbnail URL from our API
-        const releaseId = release.id || parseInt(release.discogsId);
-        if (images[releaseId]) return;
-        const imageUrl = release.thumbnailUrl || release.thumb || release.cover_image;
-        return { id: releaseId, url: imageUrl };
+      // Only fetch images for releases we haven't loaded yet
+      const releasesToFetch = releases
+        .slice(0, 10) // Limit to first 10 to avoid too many API calls
+        .filter(release => !images[release.discogsId] && !loading[release.discogsId]);
+      
+      if (releasesToFetch.length === 0) return;
+
+      // Mark as loading
+      const newLoading = { ...loading };
+      releasesToFetch.forEach(release => {
+        newLoading[release.discogsId] = true;
       });
+      setLoading(newLoading);
+
+      const promises = releasesToFetch.map(async (release) => {
+        try {
+          const response = await fetch(`/api/release/${release.discogsId}`);
+          if (response.ok) {
+            const data = await response.json();
+            return { 
+              id: release.discogsId, 
+              url: data.highResImage || release.thumbnailUrl || release.thumb 
+            };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch high-res image for ${release.discogsId}:`, error);
+        }
+        // Fallback to thumbnail
+        return { 
+          id: release.discogsId, 
+          url: release.thumbnailUrl || release.thumb 
+        };
+      });
+
       const results = await Promise.all(promises);
+      
       if (isMounted) {
-        const newImages: Record<number, string> = {};
+        const newImages = { ...images };
+        const updatedLoading = { ...loading };
+        
         results.forEach((res) => {
-          if (res) newImages[res.id] = res.url;
+          if (res) {
+            newImages[res.id] = res.url;
+            updatedLoading[res.id] = false;
+          }
         });
-        setImages((prev) => ({ ...prev, ...newImages }));
+        
+        setImages(newImages);
+        setLoading(updatedLoading);
       }
     };
+
     fetchImages();
     return () => {
       isMounted = false;
@@ -240,12 +278,11 @@ export default function Home() {
         {releasesData && releasesData.results.length > 0 && (
           <div className="relative w-full h-[900px] overflow-hidden">
             {releasesData.results.slice(0, 20).map((release, i) => {
-              const releaseId = release.id || parseInt(release.discogsId);
-              const imgUrl = release.thumbnailUrl || highResImages[releaseId] || release.thumb;
+              const imgUrl = highResImages[release.discogsId] || release.thumbnailUrl || release.thumb;
               const { top, left, rotation } = albumTransforms[i] || {};
               return (
                 <motion.div
-                  key={releaseId}
+                  key={release.discogsId}
                   className="absolute"
                   style={{
                     top: `${top}%`,
