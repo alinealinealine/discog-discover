@@ -86,6 +86,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
     console.log('[API] Got data, results count:', data.results?.length || 0);
+    
+    // Debug: log first result structure
+    if (data.results && data.results.length > 0) {
+      console.log('[API] First result structure:', JSON.stringify(data.results[0], null, 2));
+    }
 
     // Transform data for frontend compatibility
     const transformedResults = (data.results || []).map((release: any) => {
@@ -118,9 +123,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         format: basicInfo.formats?.[0]?.name || null,
         genre: basicInfo.genres?.[0] || null,
         style,
-        wantCount: release.community?.want || 0,
-        collectCount: release.community?.have || 0,
+        wantCount: release.community?.want || release.stats?.community?.in_wantlist || 0,
+        collectCount: release.community?.have || release.stats?.community?.in_collection || 0,
         thumbnailUrl: basicInfo.thumb || release.thumb || null,
+        // Debug: log the community data structure
+        _debug: {
+          community: release.community,
+          stats: release.stats
+        }
       };
     });
 
