@@ -1,226 +1,61 @@
-import { 
-  musicReleases, 
-  musicStyles,
-  type MusicRelease, 
-  type InsertMusicRelease,
-  type MusicStyle,
-  type InsertMusicStyle 
-} from "@shared/schema";
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import { MusicStyle as MusicStyleType } from './types';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discog_discover',
-});
-
-export const db = drizzle(pool);
-
-export interface IStorage {
-  // Music releases
-  getMusicReleases(): Promise<MusicRelease[]>;
-  getMusicReleasesByStyle(style: string): Promise<MusicRelease[]>;
-  createMusicRelease(release: InsertMusicRelease): Promise<MusicRelease>;
-  createMusicReleases(releases: InsertMusicRelease[]): Promise<MusicRelease[]>;
-  clearMusicReleasesByStyle(style: string): Promise<void>;
-
-  // Music styles
-  getMusicStyles(): Promise<MusicStyle[]>;
-  createMusicStyle(style: InsertMusicStyle): Promise<MusicStyle>;
-  getMusicStyleByName(name: string): Promise<MusicStyle | undefined>;
+interface MusicStyle {
+  id: number;
+  name: string;
+  value: string;
 }
 
-export class MemStorage implements IStorage {
-  private musicReleases: Map<number, MusicRelease>;
-  private musicStyles: Map<number, MusicStyle>;
-  private currentReleaseId: number;
-  private currentStyleId: number;
-
-  constructor() {
-    this.musicReleases = new Map();
-    this.musicStyles = new Map();
-    this.currentReleaseId = 1;
-    this.currentStyleId = 1;
-
-    // Initialize with common music styles
-    this.initializeStyles();
-  }
-
-  private async initializeStyles() {
-    const commonStyles = [
-      { name: "electronic", displayName: "Electronic" },
-      { name: "rock", displayName: "Rock" },
-      { name: "jazz", displayName: "Jazz" },
-      { name: "hip-hop", displayName: "Hip Hop" },
-      { name: "funk-soul", displayName: "Funk / Soul" },
-      { name: "classical", displayName: "Classical" },
-      { name: "reggae", displayName: "Reggae" },
-      { name: "folk-world-country", displayName: "Folk, World, & Country" },
-      { name: "pop", displayName: "Pop" },
-      { name: "blues", displayName: "Blues" },
-      { name: "latin", displayName: "Latin" },
-      { name: "stage-screen", displayName: "Stage & Screen" },
-      { name: "children", displayName: "Children's" },
-      { name: "non-music", displayName: "Non-Music" },
-    ];
-
-    for (const style of commonStyles) {
-      await this.createMusicStyle(style);
-    }
-  }
-
-  async getMusicReleases(): Promise<MusicRelease[]> {
-    return Array.from(this.musicReleases.values());
-  }
-
-  async getMusicReleasesByStyle(style: string): Promise<MusicRelease[]> {
-    return Array.from(this.musicReleases.values()).filter(
-      (release) => release.style === style
-    );
-  }
-
-  async createMusicRelease(insertRelease: InsertMusicRelease): Promise<MusicRelease> {
-    const id = this.currentReleaseId++;
-    const release: MusicRelease = { ...insertRelease, id };
-    this.musicReleases.set(id, release);
-    return release;
-  }
-
-  async createMusicReleases(insertReleases: InsertMusicRelease[]): Promise<MusicRelease[]> {
-    const releases: MusicRelease[] = [];
-    for (const insertRelease of insertReleases) {
-      const release = await this.createMusicRelease(insertRelease);
-      releases.push(release);
-    }
-    return releases;
-  }
-
-  async clearMusicReleasesByStyle(style: string): Promise<void> {
-    const releasesToDelete = Array.from(this.musicReleases.entries())
-      .filter(([_, release]) => release.style === style);
-    
-    for (const [id] of releasesToDelete) {
-      this.musicReleases.delete(id);
-    }
-  }
-
-  async getMusicStyles(): Promise<MusicStyle[]> {
-    return Array.from(this.musicStyles.values());
-  }
-
-  async createMusicStyle(insertStyle: InsertMusicStyle): Promise<MusicStyle> {
-    const id = this.currentStyleId++;
-    const style: MusicStyle = { ...insertStyle, id };
-    this.musicStyles.set(id, style);
-    return style;
-  }
-
-  async getMusicStyleByName(name: string): Promise<MusicStyle | undefined> {
-    return Array.from(this.musicStyles.values()).find(
-      (style) => style.name === name
-    );
-  }
+interface MusicRelease {
+  id: number;
+  style: string;
+  title: string;
+  discogsId: string;
+  artist: string;
+  label: string | null;
+  format: string | null;
+  year: string | null;
+  genre: string | null;
+  wantCount: number | null;
+  collectCount: number | null;
+  thumbnailUrl: string | null;
 }
 
-export const storage = new MemStorage();
-
-export const storageDb = {
-  async getMusicStyles() {
-    const styles = await db.select({ style: musicReleases.style })
-      .from(musicReleases)
-      .groupBy(musicReleases.style);
-    return styles.map(s => s.style);
-  },
-
-  async getMusicReleasesByStyle(style: string) {
-    return await db.select()
-      .from(musicReleases)
-      .where(musicReleases.style.equals(style))
-      .orderBy(musicReleases.collectCount.desc());
-  },
-
-  async createMusicReleases(releases: Array<{
-    discogsId: string;
-    title: string;
-    artist: string;
-    year: string | null;
-    label: string | null;
-    format: string | null;
-    genre: string | null;
-    style: string;
-    wantCount: number | null;
-    collectCount: number | null;
-    thumbnailUrl: string | null;
-  }>) {
-    const values = releases.map(release => ({
-      discogsId: release.discogsId,
-      title: release.title,
-      artist: release.artist,
-      year: release.year || null,
-      label: release.label || null,
-      format: release.format || null,
-      genre: release.genre || null,
-      style: release.style,
-      wantCount: release.wantCount || null,
-      collectCount: release.collectCount || null,
-      thumbnailUrl: release.thumbnailUrl || null
-    }));
-
-    return await db.insert(musicReleases)
-      .values(values)
-      .returning();
-  },
-
-  async clearMusicReleasesByStyle(style: string) {
-    return await db.delete(musicReleases)
-      .where(musicReleases.style.equals(style));
-  }
-};
-
-// Simple in-memory storage for development
-export const storage = {
-  async getMusicStyles() {
+const storage = {
+  getMusicStyles: async (): Promise<MusicStyle[]> => {
     return [
-      'rock',
-      'jazz',
-      'electronic',
-      'hip-hop',
-      'classical',
-      'pop',
-      'folk',
-      'metal',
-      'blues',
-      'reggae',
-      'soul',
-      'funk',
-      'r-n-b',
-      'punk',
-      'indie',
-      'ambient',
-      'house',
-      'techno',
-      'disco',
-      'country',
-      'world',
-      'experimental',
-      'latin',
-      'gospel',
-      'soundtrack'
+      { id: 1, name: 'Rock', value: 'rock' },
+      { id: 2, name: 'Jazz', value: 'jazz' },
+      { id: 3, name: 'Hip Hop', value: 'hip-hop' },
+      { id: 4, name: 'Electronic', value: 'electronic' },
+      { id: 5, name: 'Classical', value: 'classical' },
+      { id: 6, name: 'Pop', value: 'pop' },
+      { id: 7, name: 'R&B', value: 'r-b' },
+      { id: 8, name: 'Country', value: 'country' },
+      { id: 9, name: 'Metal', value: 'metal' },
+      { id: 10, name: 'Folk', value: 'folk' }
     ];
   },
 
-  async getMusicReleasesByStyle(style: string) {
-    // This is handled directly by the Discogs API
+  getMusicReleasesByStyle: async (style: string): Promise<MusicRelease[]> => {
     return [];
   },
 
-  async createMusicReleases(releases: any[]) {
-    // This is handled directly by the Discogs API
-    return releases;
+  createMusicReleases: async (releases: Omit<MusicRelease, 'id'>[]): Promise<MusicRelease[]> => {
+    return releases.map((release, index) => ({
+      ...release,
+      id: index + 1,
+      label: release.label ?? null,
+      format: release.format ?? null,
+      year: release.year ?? null,
+      genre: release.genre ?? null,
+      wantCount: release.wantCount ?? null,
+      collectCount: release.collectCount ?? null,
+      thumbnailUrl: release.thumbnailUrl ?? null
+    }));
   },
 
-  async clearMusicReleasesByStyle(style: string) {
-    // This is handled directly by the Discogs API
-    return true;
+  clearMusicReleasesByStyle: async (style: string): Promise<void> => {
+    return;
   }
 };
+
+export default storage; 
