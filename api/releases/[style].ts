@@ -25,11 +25,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[API] About to fetch from Discogs');
     
-    const searchUrl = `https://api.discogs.com/database/search?genre=${encodeURIComponent(style.charAt(0).toUpperCase() + style.slice(1))}&type=release&sort=want&sort_order=desc&page=1&per_page=20`;
+    const capitalizedStyle = style.charAt(0).toUpperCase() + style.slice(1);
     
-    console.log('[API] URL:', searchUrl);
+    // Try searching by style first, then genre as fallback
+    let searchUrl = `https://api.discogs.com/database/search?style=${encodeURIComponent(capitalizedStyle)}&type=release&sort=want&sort_order=desc&page=1&per_page=20`;
+    
+    console.log('[API] URL (style search):', searchUrl);
 
-    const response = await fetch(searchUrl, {
+    let response = await fetch(searchUrl, {
       headers: {
         "Authorization": `Discogs token=${DISCOGS_TOKEN}`,
         "User-Agent": "MusicDiscoveryTool/1.0",
@@ -47,7 +50,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const data = await response.json();
+    let data = await response.json();
+    
+    // If no results with style search, try genre search
+    if (!data.results || data.results.length === 0) {
+      console.log('[API] No results with style search, trying genre search');
+      searchUrl = `https://api.discogs.com/database/search?genre=${encodeURIComponent(capitalizedStyle)}&type=release&sort=want&sort_order=desc&page=1&per_page=20`;
+      
+      response = await fetch(searchUrl, {
+        headers: {
+          "Authorization": `Discogs token=${DISCOGS_TOKEN}`,
+          "User-Agent": "MusicDiscoveryTool/1.0",
+        },
+      });
+      
+      if (response.ok) {
+        data = await response.json();
+      }
+    }
+    
+    // If still no results, try a broader search with just the term
+    if (!data.results || data.results.length === 0) {
+      console.log('[API] No results with genre search, trying general search');
+      searchUrl = `https://api.discogs.com/database/search?q=${encodeURIComponent(capitalizedStyle)}&type=release&sort=want&sort_order=desc&page=1&per_page=20`;
+      
+      response = await fetch(searchUrl, {
+        headers: {
+          "Authorization": `Discogs token=${DISCOGS_TOKEN}`,
+          "User-Agent": "MusicDiscoveryTool/1.0",
+        },
+      });
+      
+      if (response.ok) {
+        data = await response.json();
+      }
+    }
     console.log('[API] Got data, results count:', data.results?.length || 0);
 
     // Transform data for frontend compatibility
